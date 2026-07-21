@@ -1,0 +1,138 @@
+name: Rebuild PECL/PEAR family (ordered)
+
+# One-button, dependency-ordered rebuild of the php-pear + PECL extension
+# family. The whole build DAG lives here as `needs:` edges; each job dispatches
+# one repo's build.yaml and blocks on its result (see dispatch-and-wait.yml).
+#
+# Build order (verified from each repo's Dockerfile FROM + compose base selector):
+#
+#   pear
+#    ├─ apcu ─ igbinary ─ msgpack ─┬─ memcached
+#    │                             └─ redis6
+#    ├─ geoip                              (leaves off pear — FROM pearbuild)
+#    ├─ amqp
+#    ├─ imagick
+#    ├─ pcov
+#    ├─ xdebug
+#    └─ ssh2
+#
+# apcu/igbinary/msgpack are the base publishers on the spine; the six leaves
+# only consume pearbuild and don't feed anything, so they run in parallel and a
+# leaf failure never blocks the spine.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build in every target repo
+        default: master
+        type: string
+  # Optional: let rpmbuild-php-8.N kick a full rebuild after it republishes its
+  # base image, via `gh api .../dispatches -f event_type=php-base-updated`.
+  repository_dispatch:
+    types: [php-base-updated]
+
+concurrency:
+  group: rebuild-family
+  cancel-in-progress: false
+
+jobs:
+  pear:
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-pear
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  # ---- tier 2: FROM pearbuild ------------------------------------------------
+  apcu:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-apcu
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  geoip:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-geoip
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  amqp:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-amqp
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  imagick:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-imagick
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  pcov:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-pcov
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  xdebug:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-xdebug
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  ssh2:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-ssh2
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  # ---- spine: apcu -> igbinary -> msgpack ------------------------------------
+  # (igbinary's needs:apcu transitively covers apcu, which msgpack also depends
+  #  on for its RPM build; msgpack's base-publisher builds on igbinary's base.)
+  igbinary:
+    needs: apcu
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-igbinary
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  msgpack:
+    needs: igbinary
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-msgpack
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  # ---- tier 5: FROM msgpack base ---------------------------------------------
+  memcached:
+    needs: msgpack
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-memcached
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit
+
+  redis6:
+    needs: msgpack
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-redis6
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit

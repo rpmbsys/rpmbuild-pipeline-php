@@ -1,0 +1,48 @@
+name: dispatch-and-wait
+
+# Reusable: dispatch build.yaml in one rpmbsys/<repo> and block until that
+# run finishes. Exits non-zero if the remote run fails, so the calling job in
+# rebuild-family.yml fails and its downstream `needs:` jobs are skipped.
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        description: Target repository name under the rpmbsys org
+        required: true
+        type: string
+      ref:
+        description: Git ref (branch/tag) to build in the target repo
+        required: false
+        default: master
+        type: string
+      workflow:
+        description: Workflow file to dispatch in the target repo
+        required: false
+        default: build.yaml
+        type: string
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mint a short-lived (≈1h) installation token scoped to just this target
+      # repo. Requires org secrets CI_APP_ID (var) + CI_APP_PRIVATE_KEY (secret)
+      # from the rpmbsys-ci-orchestrator GitHub App (Actions: read+write).
+      - name: Mint scoped App token
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: rpmbsys
+          repositories: ${{ inputs.repo }}
+
+      - name: Dispatch ${{ inputs.workflow }} and wait for completion
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: >-
+          bash .github/scripts/dispatch-and-wait.sh
+          rpmbsys "${{ inputs.repo }}" "${{ inputs.ref }}" "${{ inputs.workflow }}"
