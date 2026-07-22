@@ -21,6 +21,11 @@ on:
         required: false
         default: build.yaml
         type: string
+      php:
+        description: Optional PHP-minor selector passed as `-f php=<v>` (e.g. 8.5)
+        required: false
+        default: ''
+        type: string
 
 jobs:
   run:
@@ -45,4 +50,4 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: >-
           bash .github/scripts/dispatch-and-wait.sh
-          rpmbsys "${{ inputs.repo }}" "${{ inputs.ref }}" "${{ inputs.workflow }}"
+          rpmbsys "${{ inputs.repo }}" "${{ inputs.ref }}" "${{ inputs.workflow }}" "${{ inputs.php }}"
