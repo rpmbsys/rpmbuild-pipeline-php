@@ -1,0 +1,82 @@
+name: rebuild-php
+
+# Reusable per-PHP-version pipeline. For a single PHP minor it rebuilds ONLY the
+# extensions that end up in the runtime/dev images (apcu, geoip, memcached,
+# redis6, imagick) plus the build-spine they require (pear, igbinary, msgpack —
+# igbinary/msgpack aren't installed but memcached/redis6 build FROM the msgpack
+# base). When every extension RPM is uploaded, it dispatches the PHP repo's
+# images.yaml to build the runtime + dev images that install them.
+#
+# php input is the dotted minor (e.g. "8.5"): extension repos receive it as
+# `-f php=8.5` and filter their matrix to that minor; the PHP repo is
+# rpmbuild-php-<php>.
+
+on:
+  workflow_call:
+    inputs:
+      php:
+        description: PHP minor, dotted (e.g. 8.5)
+        required: true
+        type: string
+      ref:
+        description: Git ref to build in each target repo
+        required: false
+        default: master
+        type: string
+
+jobs:
+  pear:
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-pear, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+
+  # tier 2 — FROM pearbuild (installed leaves + the apcu base publisher)
+  apcu:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-apcu, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+  geoip:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-geoip, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+  imagick:
+    needs: pear
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-imagick, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+
+  # spine — apcu -> igbinary -> msgpack (build bases for memcached/redis6)
+  igbinary:
+    needs: apcu
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-igbinary, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+  msgpack:
+    needs: igbinary
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-msgpack, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+
+  # installed extensions that build FROM the msgpack base
+  memcached:
+    needs: msgpack
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-memcached, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+  redis6:
+    needs: msgpack
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with: { repo: rpmbuild-php-redis6, ref: "${{ inputs.ref }}", php: "${{ inputs.php }}" }
+    secrets: inherit
+
+  # all extension RPMs uploaded -> build runtime + dev images in the PHP repo
+  images:
+    needs: [memcached, redis6, geoip, imagick]
+    uses: ./.github/workflows/dispatch-and-wait.yml
+    with:
+      repo: rpmbuild-php-${{ inputs.php }}
+      ref: "${{ inputs.ref }}"
+      workflow: images.yaml
+    secrets: inherit

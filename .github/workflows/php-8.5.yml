@@ -1,0 +1,28 @@
+name: PHP 8.5 pipeline
+
+# Entry point for the PHP 8.5 chain. Fires when rpmbuild-php-8.5 finishes its
+# base phase (RPMs + aursu/php85build:<os>-build published) and sends the
+# `php85-base-ready` repository_dispatch, or manually. Delegates the ordered
+# family rebuild + runtime/dev image build to the reusable rebuild-php.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build in each target repo
+        default: master
+        type: string
+  repository_dispatch:
+    types: [php85-base-ready]
+
+concurrency:
+  group: php-8.5-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/rebuild-php.yml
+    with:
+      php: "8.5"
+      ref: ${{ inputs.ref || 'master' }}
+    secrets: inherit

@@ -59,21 +59,48 @@ driven here — they must already have published `aursu/php8Nbuild:<os>-build`.
 > `CI_DISPATCH_TOKEN` and, in `dispatch-and-wait.yml`, drop the token-minting
 > step and set `GH_TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}`.
 
-## Usage
+## Two pipelines
 
-- **Manual full rebuild:** Actions → *Rebuild PECL/PEAR family (ordered)* →
-  Run workflow → set `ref` (default `master`).
-- **Auto-trigger** from `rpmbuild-php-8.N` after it republishes its base:
-  ```
-  gh api repos/rpmbsys/rpmbuild-pipeline-php/dispatches \
-     -f event_type=php-base-updated
-  ```
+### A. Per-PHP-version pipeline (`php-8.5.yml` → `rebuild-php.yml`)
+
+For a single PHP minor: rebuild only the extensions the runtime/dev images
+install (apcu, geoip, memcached, redis6, imagick) plus the build-spine they need
+(pear, igbinary, msgpack), then build that PHP repo's runtime + dev images.
+
+```
+rpmbuild-php-8.5 build.yaml (push)         pipeline-php                 rpmbuild-php-8.5
+  test + build ──php85-base-ready──▶ php-8.5.yml → rebuild-php.yml
+  (RPMs + base image)                  pear→apcu→igbinary→msgpack→{memcached,redis6}
+                                       + geoip, imagick
+                                          └─ all uploaded ──▶ dispatch images.yaml ──▶ runtime→dev
+```
+
+- **Auto:** push to `rpmbuild-php-8.5` master → its `notify` job fires
+  `php85-base-ready` here.
+- **Manual:** Actions → *PHP 8.5 pipeline* → Run (`ref`, default `master`).
+
+Extensions `amqp/pcov/xdebug/ssh2` are **excluded** (not in the runtime image).
+See `docs/php-build-pipeline-architecture.md` in the crytek-platform repo.
+
+### B. All-versions family rebuild (`rebuild-family.yml`)
+
+Blanket rebuild of all 12 extensions across all PHP minors (e.g. after an
+OS bump). Actions → *Rebuild PECL/PEAR family (ordered)* → Run (`ref`).
 
 ## Files
 
-- `.github/workflows/rebuild-family.yml` — the DAG (one job per repo, `needs:`).
+- `.github/workflows/php-8.5.yml` — 8.5 entry (wrapper over `rebuild-php.yml`).
+- `.github/workflows/rebuild-php.yml` — reusable per-version DAG (8 repos +
+  the `images` dispatch back to the PHP repo). One wrapper per minor.
+- `.github/workflows/rebuild-family.yml` — all-versions, all-12 DAG.
 - `.github/workflows/dispatch-and-wait.yml` — reusable wrapper: checkout, mint
-  the App token, then run the script below.
-- `.github/scripts/dispatch-and-wait.sh` — dispatch one repo's build and block
-  on its conclusion (`gh run watch --exit-status`). Standalone:
-  `GH_TOKEN=… .github/scripts/dispatch-and-wait.sh <org> <repo> <ref> [workflow]`.
+  the App token, then run the script below (optional `php` selector).
+- `.github/scripts/dispatch-and-wait.sh` — dispatch one repo's workflow and
+  block on its conclusion (`gh run watch --exit-status`). Standalone:
+  `GH_TOKEN=… .github/scripts/dispatch-and-wait.sh <org> <repo> <ref> [workflow] [php]`.
+  Detailed walkthrough + known sharp edges: [`docs/dispatch-and-wait.md`](docs/dispatch-and-wait.md).
+
+Per-version prerequisites (beyond the family setup above): the App must also be
+installed on the PHP repos, and `CI_APP_ID`/`CI_APP_PRIVATE_KEY` readable by
+them (the PHP repo's `notify` job mints a token to dispatch this repo). Each
+in-scope extension `build.yaml` carries a `php` input + `.github/scripts/php-matrix.sh`.
