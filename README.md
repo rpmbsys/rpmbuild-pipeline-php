@@ -44,6 +44,9 @@ driven here — they must already have published `aursu/php8Nbuild:<os>-build`.
 1. **GitHub App** `rpmbsys-ci-orchestrator` (org → Developer settings → GitHub
    Apps), permissions **Actions: Read and write**, **Contents: Read-only**,
    **Metadata: Read-only**; installed on this repo + all 12 target repos.
+   These exact permissions are load-bearing — all triggers use `workflow_dispatch`
+   (Actions:write), never `repository_dispatch` (which needs Contents:write). See
+   [`docs/permissions.md`](docs/permissions.md).
 2. **Org secrets/variables** (rpmbsys → Settings → Secrets and variables →
    Actions), scoped to this repo:
    - variable `CI_APP_ID` — the App's numeric ID
