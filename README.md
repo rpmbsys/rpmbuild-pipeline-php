@@ -103,4 +103,4 @@ OS bump). Actions → *Rebuild PECL/PEAR family (ordered)* → Run (`ref`).
 Per-version prerequisites (beyond the family setup above): the App must also be
 installed on the PHP repos, and `CI_APP_ID`/`CI_APP_PRIVATE_KEY` readable by
 them (the PHP repo's `notify` job mints a token to dispatch this repo). Each
-in-scope extension `build.yaml` carries a `php` input + `.github/scripts/php-matrix.sh`.
+in-scope extension `build.yaml` carries a `php` input + `.github/scripts/php-matrix.py`.

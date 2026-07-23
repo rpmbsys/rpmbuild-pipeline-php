@@ -19,9 +19,14 @@ on:
         required: true
         type: string
       ref:
-        description: Git ref to build in each target repo
+        description: Git ref to build in the extension repos (they default to master)
         required: false
         default: master
+        type: string
+      php_ref:
+        description: Git ref to build in the PHP repo (they default to main)
+        required: false
+        default: main
         type: string
 
 jobs:
@@ -77,6 +82,6 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-${{ inputs.php }}
-      ref: "${{ inputs.ref }}"
+      ref: "${{ inputs.php_ref }}"        # PHP repos default to main, not master
       workflow: images.yaml
     secrets: inherit
