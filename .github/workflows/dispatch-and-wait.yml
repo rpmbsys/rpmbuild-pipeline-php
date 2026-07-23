@@ -12,9 +12,9 @@ on:
         required: true
         type: string
       ref:
-        description: Git ref (branch/tag) to build in the target repo
+        description: Branch to build; empty ('') -> the target repo's default branch
         required: false
-        default: master
+        default: ''
         type: string
       workflow:
         description: Workflow file to dispatch in the target repo

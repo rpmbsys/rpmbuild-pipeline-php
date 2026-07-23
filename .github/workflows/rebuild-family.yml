@@ -24,8 +24,8 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Git ref to build in every target repo
-        default: master
+        description: Branch to build in every target repo; empty -> each repo's default branch
+        default: ''
         type: string
   # Optional: let rpmbuild-php-8.N kick a full rebuild after it republishes its
   # base image, via `gh api .../dispatches -f event_type=php-base-updated`.
@@ -41,7 +41,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-pear
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   # ---- tier 2: FROM pearbuild ------------------------------------------------
@@ -50,7 +50,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-apcu
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   geoip:
@@ -58,7 +58,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-geoip
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   amqp:
@@ -66,7 +66,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-amqp
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   imagick:
@@ -74,7 +74,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-imagick
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   pcov:
@@ -82,7 +82,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-pcov
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   xdebug:
@@ -90,7 +90,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-xdebug
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   ssh2:
@@ -98,7 +98,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-ssh2
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   # ---- spine: apcu -> igbinary -> msgpack ------------------------------------
@@ -109,7 +109,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-igbinary
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   msgpack:
@@ -117,7 +117,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-msgpack
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   # ---- tier 5: FROM msgpack base ---------------------------------------------
@@ -126,7 +126,7 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-memcached
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit
 
   redis6:
@@ -134,5 +134,5 @@ jobs:
     uses: ./.github/workflows/dispatch-and-wait.yml
     with:
       repo: rpmbuild-php-redis6
-      ref: ${{ inputs.ref || 'master' }}
+      ref: ${{ inputs.ref }}
     secrets: inherit

@@ -2,10 +2,11 @@
 #
 # Dispatch a target repo's workflow and block until that run completes.
 #
-# Usage: dispatch-and-wait.sh <org> <repo> <ref> [workflow] [php]
-#   workflow defaults to build.yaml
-#   php      optional PHP-minor selector passed to the target as `-f php=<v>`
-#            (e.g. 8.5); omitted or "all" -> no input passed (target builds all)
+# Usage: dispatch-and-wait.sh <org> <repo> [ref] [workflow] [php]
+#   ref       branch to build; empty ("") -> the repo's default branch
+#   workflow  defaults to build.yaml
+#   php       optional PHP-minor selector passed to the target as `-f php=<v>`
+#             (e.g. 8.5); omitted or "all" -> no input passed (target builds all)
 #
 # Requires the gh CLI, authenticated via GH_TOKEN in the environment
 # (an installation token with Actions: read+write on <org>/<repo>).
@@ -17,9 +18,18 @@ set -euo pipefail
 
 ORG="${1:?org required}"
 REPO="${2:?repo required}"
-REF="${3:?ref required}"          # must be a BRANCH name — see run-matching below
+REF="${3:-}"
 WF="${4:-build.yaml}"
 PHP="${5:-}"
+
+# Branch-name history differs across repos (older ones default to `master`,
+# newer ones to `main`) with no semantic meaning — don't assume either. When no
+# ref is given, resolve the target's actual default branch. Run-matching filters
+# by --branch, so a provided REF must be a branch (a tag/SHA would dispatch but
+# never be found here -> 40-poll timeout, exit 1).
+if [ -z "$REF" ]; then
+  REF=$(gh repo view "$ORG/$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')
+fi
 
 run_args=(workflow run "$WF" -R "$ORG/$REPO" --ref "$REF")
 php_note=""
@@ -29,14 +39,10 @@ if [ -n "$PHP" ] && [ "$PHP" != "all" ]; then
 fi
 
 # `gh workflow run` returns no run id (the dispatch API answers 204 No Content),
-# so we identify OUR run as "the newest workflow_dispatch run on this branch that
-# did not exist before we dispatched". The `before` snapshot MUST use the SAME
+# so we identify OUR run as "the newest workflow_dispatch run on $REF that did
+# not exist before we dispatched". The `before` snapshot MUST use the SAME
 # filters as the poll loop (same list_args) — otherwise a pre-existing older
 # dispatch run could be mistaken for ours and we'd watch the wrong run.
-#
-# Run-matching filters by --branch, so REF must be a branch name: tags/SHAs will
-# dispatch fine but never be found here (-> 40-poll timeout, exit 1). The
-# orchestrator only ever passes branches (master).
 list_args=(run list -R "$ORG/$REPO" --workflow "$WF" --branch "$REF"
            --event workflow_dispatch --limit 1 --json databaseId
            --jq '.[0].databaseId // 0')
