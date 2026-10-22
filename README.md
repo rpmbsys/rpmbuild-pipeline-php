@@ -64,26 +64,31 @@ driven here — they must already have published `aursu/php8Nbuild:<os>-build`.
 
 ## Two pipelines
 
-### A. Per-PHP-version pipeline (`php-8.5.yml` → `rebuild-php.yml`)
+### A. Per-PHP-version pipeline (`php-8.N.yml` → `rebuild-php.yml`)
 
 For a single PHP minor: rebuild only the extensions the runtime/dev images
 install (apcu, geoip, memcached, redis6, imagick) plus the build-spine they need
 (pear, igbinary, msgpack), then build that PHP repo's runtime + dev images.
 
+Wired for **8.4** (`php-8.4.yml`) and **8.5** (`php-8.5.yml`); the two wrappers
+differ only in the version.
+
 ```
-rpmbuild-php-8.5 build.yaml (push)         pipeline-php                 rpmbuild-php-8.5
-  test + build ──php85-base-ready──▶ php-8.5.yml → rebuild-php.yml
+rpmbuild-php-8.N build.yaml (push)              pipeline-php                 rpmbuild-php-8.N
+  test + build ──notify: workflow_dispatch──▶ php-8.N.yml → rebuild-php.yml
   (RPMs + base image)                  pear→apcu→igbinary→msgpack→{memcached,redis6}
                                        + geoip, imagick
                                           └─ all uploaded ──▶ dispatch images.yaml ──▶ runtime→dev
 ```
 
-- **Auto:** push to `rpmbuild-php-8.5` master → its `notify` job fires
-  `php85-base-ready` here.
-- **Manual:** Actions → *PHP 8.5 pipeline* → Run (`ref`, default `master`).
+- **Auto:** push to the default branch of `rpmbuild-php-8.N` → after `test` and
+  `build`, its `notify` job dispatches `php-8.N.yml` here
+  (`createWorkflowDispatch`, not `repository_dispatch` — see
+  [`docs/permissions.md`](docs/permissions.md)).
+- **Manual:** Actions → *PHP 8.N pipeline* → Run (`ref`; empty = each target
+  repo's default branch).
 
 Extensions `amqp/pcov/xdebug/ssh2` are **excluded** (not in the runtime image).
-See `docs/php-build-pipeline-architecture.md` in the crytek-platform repo.
 
 ### B. All-versions family rebuild (`rebuild-family.yml`)
 
@@ -92,7 +97,8 @@ OS bump). Actions → *Rebuild PECL/PEAR family (ordered)* → Run (`ref`).
 
 ## Files
 
-- `.github/workflows/php-8.5.yml` — 8.5 entry (wrapper over `rebuild-php.yml`).
+- `.github/workflows/php-8.4.yml`, `php-8.5.yml` — per-minor entries (wrappers over
+  `rebuild-php.yml`).
 - `.github/workflows/rebuild-php.yml` — reusable per-version DAG (8 repos +
   the `images` dispatch back to the PHP repo). One wrapper per minor.
 - `.github/workflows/rebuild-family.yml` — all-versions, all-12 DAG.
@@ -100,7 +106,7 @@ OS bump). Actions → *Rebuild PECL/PEAR family (ordered)* → Run (`ref`).
   the App token, then run the script below (optional `php` selector).
 - `.github/scripts/dispatch-and-wait.sh` — dispatch one repo's workflow and
   block on its conclusion (`gh run watch --exit-status`). Standalone:
-  `GH_TOKEN=… .github/scripts/dispatch-and-wait.sh <org> <repo> <ref> [workflow] [php]`.
+  `GH_TOKEN=… .github/scripts/dispatch-and-wait.sh <org> <repo> [ref] [workflow] [php]`.
   Detailed walkthrough + known sharp edges: [`docs/dispatch-and-wait.md`](docs/dispatch-and-wait.md).
 
 Per-version prerequisites (beyond the family setup above): the App must also be

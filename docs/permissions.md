@@ -38,8 +38,8 @@ x-accepted-github-permissions: contents=write
 Вместо `repository_dispatch` весь авто-путь использует **workflow_dispatch**, для
 которого хватает уже выданного `Actions: write`:
 
-- **`notify`** (в `rpmbuild-php-8.5/build.yaml`) вызывает
-  `github.rest.actions.createWorkflowDispatch({ workflow_id: 'php-8.5.yml',
+- **`notify`** (в `rpmbuild-php-8.4/build.yaml` и `rpmbuild-php-8.5/build.yaml`)
+  вызывает `github.rest.actions.createWorkflowDispatch({ workflow_id: 'php-8.N.yml',
   ref: <ветка по умолчанию pipeline-репозитория> })`. Ветка по умолчанию берётся
   через `github.rest.repos.get` (Metadata: read), а не хардкодится.
 - **`dispatch-and-wait`** запускает целевой workflow через `gh workflow run`
@@ -47,8 +47,10 @@ x-accepted-github-permissions: contents=write
   `gh run watch --exit-status`.
 
 Итог: **ни один авто-триггер в этой системе не использует `repository_dispatch`.**
-`php-8.5.yml` объявляет только `workflow_dispatch` (ручной запуск + вызов из
-`notify`). Право `Contents` остаётся read-only.
+`php-8.4.yml` и `php-8.5.yml` объявляют только `workflow_dispatch` (ручной
+запуск + вызов из `notify`). Единственный оставшийся слушатель
+`repository_dispatch` — необязательный `php-base-updated` в `rebuild-family.yml`;
+его никто не отправляет. Право `Contents` остаётся read-only.
 
 > Если когда-нибудь понадобится именно `repository_dispatch` (например, чтобы
 > развязать триггер от имени workflow), придётся поднять право App до
