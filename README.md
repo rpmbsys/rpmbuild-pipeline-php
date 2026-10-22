@@ -70,8 +70,8 @@ For a single PHP minor: rebuild only the extensions the runtime/dev images
 install (apcu, geoip, memcached, redis6, imagick) plus the build-spine they need
 (pear, igbinary, msgpack), then build that PHP repo's runtime + dev images.
 
-Wired for **8.4** (`php-8.4.yml`) and **8.5** (`php-8.5.yml`); the two wrappers
-differ only in the version.
+Wired for **8.1** (`php-8.1.yml`), **8.4** (`php-8.4.yml`) and **8.5**
+(`php-8.5.yml`); the wrappers differ only in the version.
 
 ```
 rpmbuild-php-8.N build.yaml (push)              pipeline-php                 rpmbuild-php-8.N
@@ -97,7 +97,7 @@ OS bump). Actions → *Rebuild PECL/PEAR family (ordered)* → Run (`ref`).
 
 ## Files
 
-- `.github/workflows/php-8.4.yml`, `php-8.5.yml` — per-minor entries (wrappers over
+- `.github/workflows/php-8.1.yml`, `php-8.4.yml`, `php-8.5.yml` — per-minor entries (wrappers over
   `rebuild-php.yml`).
 - `.github/workflows/rebuild-php.yml` — reusable per-version DAG (8 repos +
   the `images` dispatch back to the PHP repo). One wrapper per minor.
